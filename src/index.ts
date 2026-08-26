@@ -56,7 +56,7 @@ class HomeboxClient {
 
       if (response.data && response.data.token) {
         this.authToken = response.data.token;
-        this.axios.defaults.headers.common["Authorization"] = `Bearer ${this.authToken}`;
+        this.axios.defaults.headers.common["Authorization"] = this.authToken;
       } else {
         throw new Error("Authentication failed: No token received");
       }
@@ -110,7 +110,7 @@ class HomeboxClient {
   async listLabels(): Promise<any> {
     await this.ensureAuthenticated();
     try {
-      const response = await this.axios.get("/api/v1/labels");
+      const response = await this.axios.get("/api/v1/tags");
       return response.data;
     } catch (error: any) {
       throw new Error(`Failed to list labels: ${error.message}`);
@@ -120,7 +120,7 @@ class HomeboxClient {
   async getLabel(labelId: string): Promise<any> {
     await this.ensureAuthenticated();
     try {
-      const response = await this.axios.get(`/api/v1/labels/${labelId}`);
+      const response = await this.axios.get(`/api/v1/tags/${labelId}`);
       return response.data;
     } catch (error: any) {
       throw new Error(`Failed to get label: ${error.message}`);
@@ -130,7 +130,9 @@ class HomeboxClient {
   async getItemsByLocation(locationId: string): Promise<any> {
     await this.ensureAuthenticated();
     try {
-      const response = await this.axios.get(`/api/v1/locations/${locationId}/items`);
+      const response = await this.axios.get("/api/v1/items", {
+        params: { locations: [locationId] },
+      });
       return response.data;
     } catch (error: any) {
       throw new Error(`Failed to get items by location: ${error.message}`);
@@ -140,7 +142,9 @@ class HomeboxClient {
   async getItemsByLabel(labelId: string): Promise<any> {
     await this.ensureAuthenticated();
     try {
-      const response = await this.axios.get(`/api/v1/labels/${labelId}/items`);
+      const response = await this.axios.get("/api/v1/items", {
+        params: { tags: [labelId] },
+      });
       return response.data;
     } catch (error: any) {
       throw new Error(`Failed to get items by label: ${error.message}`);
