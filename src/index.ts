@@ -2,12 +2,14 @@
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
   Tool,
 } from "@modelcontextprotocol/sdk/types.js";
 import axios, { AxiosInstance } from "axios";
+import express from "express";
 import { readFileSync, existsSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
@@ -478,14 +480,55 @@ async function main() {
     console.error("Request handlers configured");
 
     // Start the server
-    console.error("Creating stdio transport...");
-    const transport = new StdioServerTransport();
-    console.error("Stdio transport created");
+    if (process.env.MCP_TRANSPORT === "http") {
+      const port = parseInt(process.env.MCP_HTTP_PORT || "3000", 10);
+      const app = express();
+      app.use(express.json());
 
-    console.error("Connecting server to transport...");
-    await server.connect(transport);
-    console.error("Homebox MCP Server running on stdio");
-    console.error("Server is ready to accept requests");
+      app.post("/mcp", async (req, res) => {
+        try {
+          const transport = new StreamableHTTPServerTransport({
+            sessionIdGenerator: undefined,
+          });
+          res.on("close", () => transport.close());
+          await server.connect(transport);
+          await transport.handleRequest(req, res, req.body);
+        } catch (error: any) {
+          console.error("Error handling MCP request:", error);
+          if (!res.headersSent) {
+            res.status(500).json({
+              jsonrpc: "2.0",
+              error: { code: -32603, message: "Internal server error" },
+              id: null,
+            });
+          }
+        }
+      });
+
+      const methodNotAllowed = (_req: express.Request, res: express.Response) => {
+        res.status(405).json({
+          jsonrpc: "2.0",
+          error: { code: -32000, message: "Method not allowed." },
+          id: null,
+        });
+      };
+      app.get("/mcp", methodNotAllowed);
+      app.delete("/mcp", methodNotAllowed);
+
+      app.listen(port, "0.0.0.0", () => {
+        console.error(`Homebox MCP Server running on http://0.0.0.0:${port}/mcp`);
+      });
+      console.error("Server is ready to accept requests");
+    } else {
+      console.error("Creating stdio transport...");
+      const transport = new StdioServerTransport();
+      console.error("Stdio transport created");
+
+      console.error("Connecting server to transport...");
+      await server.connect(transport);
+      console.error("Homebox MCP Server running on stdio");
+      console.error("Server is ready to accept requests");
+    }
 
   } catch (error: any) {
     console.error("Error in main():", error);
