@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - claude/homebox-mcp-server-01KDVobte38w3r3RGLkjPzJd
     tags:
       - 'v*'
   pull_request:
